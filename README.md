@@ -1,6 +1,8 @@
 ## g-mason
 An optimized version for MASON, enabling Multi-GPU computing for Multi Agent Simulations
 
+The original project : [http://cs.gmu.edu/~eclab/projects/mason/]
+
 ### Requirement:
   1. JCuda library [http://www.jcuda.org/]
   2. Java JDK
