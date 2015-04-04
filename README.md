@@ -17,6 +17,18 @@ The sample setting for the environment variables is provided in docs/sample-conf
 4. To play around with three examples with Visualization as default (if you dont want to see visualization, just disable it in the GUI):
   
   $ start/mason.sh
+  
+  Or to start example models directly without GUI:
+  
+  $ java sim.app.flockers.Flockers
+  $ java sim.app.heatbugs.Heatbugs
+  $ java sim.app.students.Students
+  
+  For GUI:
+  
+  $ java sim.app.flockers.FlockersWithUI
+  $ java sim.app.heatbugs.HeatBugsWithUI
+  $ java sim.app.students.StudentsWithUI
 
 5. Explore the power of Multi-GPU with your own simulation model. please place your file into sim.app package so the makefile can work properly
 

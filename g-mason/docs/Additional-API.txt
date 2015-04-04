@@ -1,0 +1,33 @@
+Scheduler:
+	public int getgpuSteps() //get current gpusteps value
+	public void setgpuSteps(int gpuSteps) //set gpusteps parameter, called from GUI
+	int schedule.currentPhase; //current phase/ can be customized
+	public void return_to_CPU() //wake up the schedule. begin visualization
+	//
+	
+GPUContext:
+	public GPUContext(int device_number, int index) //create new context and event, stream for that device, 
+	public void eventRecord() //record an event after call for GPU execution
+	public void eventSync() //Sync that even/ the method will wait until GPU execution complete
+	//The above two methods can be used to create overlapping kernel launch and data transfer. A more effective scheme of GPU computing
+	public String preparePtxFile(String cuFileName) //Prepare ptx kernel for execution (Continuous "setup field", compute kernels)
+	//Above are core methods for GPU Context.
+	//Additional methods should be added based on model's need
+	//
+	
+class AgentInt
+	public int index;
+	public abstract Int2D getLocation();
+	public abstract void setLocation(Int2D location);
+	//get and set Location of agent (Integer values)
+	//need to be inherited(extended) by agent classes
+	//
+	
+class AgentDouble		
+	public int index;
+	public int offset; //for multiple gpus
+	public abstract Double2D getLocation();
+	public abstract void setLocation(Double2D location);
+	//get and set Location of agent (Integer values)
+	//need to be inherited(extended) by agent classes
+	//

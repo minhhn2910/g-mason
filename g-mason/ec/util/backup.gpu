@@ -1,0 +1,559 @@
+package ec.util;
+
+import static jcuda.jcurand.JCurand.*;
+import static jcuda.jcurand.curandRngType.CURAND_RNG_PSEUDO_MTGP32;
+import static jcuda.runtime.JCuda.*;
+import static jcuda.runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost;
+
+import java.util.Arrays;
+
+import jcuda.*;
+import jcuda.jcurand.*;
+import jcuda.runtime.JCuda;
+
+
+import java.io.*;
+import java.util.*;
+
+public strictfp class MersenneTwisterFast implements Serializable, Cloneable
+    {
+
+
+    // Serialization
+    private static final long serialVersionUID = 1234567890L;  
+    //possible for serialization ?
+	public final int N = 1000;
+	public final int numElements = N*10000; //fix this num to efficent value in paper
+	private int index = numElements-1 ; //initial value
+	private int host_random[] = new int[numElements]; //store bunch of random numbers for efficiency
+	
+	private curandGenerator generator = new curandGenerator();
+	private Pointer device_random = new Pointer();
+
+	
+    
+    public Object clone()
+        {
+        try
+            {
+            MersenneTwisterFast f = (MersenneTwisterFast)(super.clone());
+    //        f.mt = (int[])(mt.clone());
+      //      f.mag01 = (int[])(mag01.clone());
+            return f;
+            }
+        catch (CloneNotSupportedException e) { throw new InternalError(); } // should never happen
+        }
+    
+    public boolean stateEquals(MersenneTwisterFast other)
+        {
+      /* Still draft version
+       *
+       *  
+       */
+        return true;
+        }
+
+    /** Reads the entire state of the MersenneTwister RNG from the stream */
+    public void readState(DataInputStream stream) throws IOException
+        {
+		//still draft
+		return;
+        }
+        
+    /** Writes the entire state of the MersenneTwister RNG to the stream */
+    public void writeState(DataOutputStream stream) throws IOException
+        {
+        //still draft
+        return;
+        }
+
+	private void initial()
+	{
+		JCuda.setExceptionsEnabled(true);
+        JCurand.setExceptionsEnabled(true);
+        
+        cudaMalloc(device_random, numElements * Sizeof.INT);  // 64 arch ?
+        curandCreateGenerator(generator,CURAND_RNG_PSEUDO_MTGP32);
+
+	}
+	
+	
+	private void generateNumbers()
+	{
+		curandGenerate(generator, device_random, numElements);
+		cudaMemcpy(Pointer.to(host_random), device_random, numElements * Sizeof.INT, cudaMemcpyDeviceToHost);
+		index = 0;
+	}
+	
+    /**
+     * Constructor using the default seed.
+     */
+    public MersenneTwisterFast()
+        {
+        this(System.currentTimeMillis());
+        }
+    
+    public MersenneTwisterFast(long seed)
+        {
+			initial();
+			setSeed(seed);
+        }
+    
+
+    public MersenneTwisterFast(int[] array)
+        {
+		//not usually used
+		//draft also
+		setSeed(System.currentTimeMillis());
+        //setSeed(array);
+		
+        }
+
+
+    /**
+     * Initalize the pseudo random number generator.  Don't
+     * pass in a long that's bigger than an int (Mersenne Twister
+     * only uses the first 32 bits for its seed).   
+     */
+
+    public void setSeed(long seed)
+        {
+			curandSetPseudoRandomGeneratorSeed(generator, seed);
+        }
+
+
+    /**
+     * Sets the seed of the MersenneTwister using an array of integers.
+     * Your array must have a non-zero length.  Only the first 624 integers
+     * in the array are used; if the array is shorter than this then
+     * integers are repeatedly used in a wrap-around fashion.
+     */
+
+    public void setSeed(int[] array)
+        {
+			//not usually used, still draft
+        }
+
+
+    public int nextInt()
+        {
+			if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+			return host_random[index++] ;
+        }
+
+
+
+    public short nextShort()
+        {
+        	if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+			return (short)(host_random[index++] >>> 16);
+        }
+
+
+
+    public char nextChar()
+        {
+        	if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+			return (char)(host_random[index++] >>> 16);
+        }
+
+
+    public boolean nextBoolean()
+        {
+        	if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+			return (boolean)((host_random[index++] >>> 31) != 0);
+        }
+
+
+
+    /** This generates a coin flip with a probability <tt>probability</tt>
+        of returning true, else returning false.  <tt>probability</tt> must
+        be between 0.0 and 1.0, inclusive.   Not as precise a random real
+        event as nextBoolean(double), but twice as fast. To explicitly
+        use this, remember you may need to cast to float first. */
+
+    public boolean nextBoolean(float probability)
+        {
+        	if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+        return (host_random[index++] >>> 8) / ((float)(1 << 24)) < probability;
+        }
+
+
+    /** This generates a coin flip with a probability <tt>probability</tt>
+        of returning true, else returning false.  <tt>probability</tt> must
+        be between 0.0 and 1.0, inclusive. */
+
+    public boolean nextBoolean(double probability)
+        {
+			if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+			
+			int y=host_random[index++];
+			
+			if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+
+			int z=host_random[index++];
+		//these 2 ints take from MersenneTwisterFast
+        if (probability < 0.0 || probability > 1.0)
+            throw new IllegalArgumentException ("probability must be between 0.0 and 1.0 inclusive.");
+        if (probability==0.0) return false;             // fix half-open issues
+        else if (probability==1.0) return true; // fix half-open issues
+        
+        return ((((long)(y >>> 6)) << 27) + (z >>> 5)) / (double)(1L << 53) < probability;
+        }
+
+
+    public byte nextByte()
+        {
+		if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+
+        return (byte)(host_random[index++] >>> 24);
+        }
+
+
+    public void nextBytes(byte[] bytes)
+        {        
+        for (int x=0;x<bytes.length;x++)
+            {
+
+				if(index > numElements-1) //out of range, need generate more
+					generateNumbers();
+                bytes[x] = (byte)(host_random[index++] >>> 24);
+            }
+        }
+
+
+    public long nextLong()
+        {
+
+		if(index > numElements-1) //out of range, need generate more
+				generateNumbers();
+        int y=host_random[index++];
+        
+		if(index > numElements-1) //out of range, need generate more
+			generateNumbers();
+        int z=host_random[index++];
+
+        return (((long)y) << 32) + (long)z;
+        }
+
+
+
+    /** Returns a long drawn uniformly from 0 to n-1.  Suffice it to say,
+        n must be > 0, or an IllegalArgumentException is raised. */
+    public long nextLong(long n)
+        {
+        if (n<=0)
+            throw new IllegalArgumentException("n must be positive, got: " + n);
+        
+        long bits, val;
+        do 
+         {
+			
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers(); 
+            int y= host_random[index++];
+            
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers();
+            int z = host_random[index++];
+    
+            bits = (((((long)y) << 32) + (long)z) >>> 1);
+            val = bits % n;
+         } while (bits - val + (n-1) < 0);
+        return val;
+        }
+
+    /** Returns a random double in the half-open range from [0.0,1.0).  Thus 0.0 is a valid
+        result but 1.0 is not. */
+    public double nextDouble()
+        {
+		
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers(); 
+            int y= host_random[index++];
+            
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers();
+            int z = host_random[index++];
+
+        return ((((long)(y >>> 6)) << 27) + (z >>> 5)) / (double)(1L << 53);
+        }
+
+
+    public double nextDouble(boolean includeZero, boolean includeOne)
+        {
+        double d = 0.0;
+        do
+            {
+            d = nextDouble();                           // grab a value, initially from half-open [0.0, 1.0)
+            if (includeOne && nextBoolean()) d += 1.0;  // if includeOne, with 1/2 probability, push to [1.0, 2.0)
+            } 
+        while ( (d > 1.0) ||                            // everything above 1.0 is always invalid
+            (!includeZero && d == 0.0));            // if we're not including zero, 0.0 is invalid
+        return d;
+        }
+
+
+    public void clearGaussian() 
+    { 
+			System.out.println("clearGaussian() ");
+			return;
+	}
+
+
+    public double nextGaussian()
+        {
+			
+            //still draft here
+			System.out.println("nextGaussian()");
+			return 0.0;
+        }
+    
+    
+    
+    
+
+    /** Returns a random float in the half-open range from [0.0f,1.0f).  Thus 0.0f is a valid
+        result but 1.0f is not. */
+    public float nextFloat()
+        {
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers(); 
+            int y= host_random[index++];        	
+        
+        return (y >>> 8) / ((float)(1 << 24));
+        }
+
+
+   public float nextFloat(boolean includeZero, boolean includeOne)
+        {
+        float d = 0.0f;
+        do
+            {
+            d = nextFloat();                            // grab a value, initially from half-open [0.0f, 1.0f)
+            if (includeOne && nextBoolean()) d += 1.0f; // if includeOne, with 1/2 probability, push to [1.0f, 2.0f)
+            } 
+        while ( (d > 1.0f) ||                           // everything above 1.0f is always invalid
+            (!includeZero && d == 0.0f));           // if we're not including zero, 0.0f is invalid
+        return d;
+        }
+
+
+
+    public int nextInt(int n)
+        {
+        if (n<=0)
+            throw new IllegalArgumentException("n must be positive, got: " + n);
+        
+        if ((n & -n) == n)  // i.e., n is a power of 2
+            {
+
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers(); 
+            int y= host_random[index++];
+                    
+            return (int)((n * (long) (y >>> 1) ) >> 31);
+            }
+        
+        int bits, val;
+        do 
+            {
+			if(index > numElements-1) //out of range, need generate more
+					generateNumbers(); 
+            int y= host_random[index++];
+                   
+            bits = (y >>> 1);
+            val = bits % n;
+            } while(bits - val + (n-1) < 0);
+        return val;
+        }
+    
+
+    /**
+     * Tests the code.
+     */
+    public static void main(String args[])
+        { 
+        int j;
+
+        MersenneTwisterFast r;
+
+        // CORRECTNESS TEST
+        // COMPARE WITH http://www.math.keio.ac.jp/matumoto/CODES/MT2002/mt19937ar.out
+ /*       
+        r = new MersenneTwisterFast(new int[]{0x123, 0x234, 0x345, 0x456});
+        System.out.println("Output of MersenneTwisterFast with new (2002/1/26) seeding mechanism");
+        for (j=0;j<1000;j++)
+            {
+            // first, convert the int from signed to "unsigned"
+            long l = (long)r.nextInt();
+            if (l < 0 ) l += 4294967296L;  // max int value
+            String s = String.valueOf(l);
+            while(s.length() < 10) s = " " + s;  // buffer
+            System.out.print(s + " ");
+            if (j%5==4) System.out.println();       
+            }
+*/
+        // SPEED TEST
+
+        final long SEED = 4357;
+
+        int xx; long ms;
+        System.out.println("\nTime to test grabbing 100000000 ints");
+          
+        Random rr = new Random(SEED);
+        xx = 0;
+        ms = System.currentTimeMillis();
+        for (j = 0; j < 100000000; j++)
+            xx += rr.nextInt();
+        System.out.println("java.util.Random: " + (System.currentTimeMillis()-ms) + "          Ignore this: " + xx);
+        
+        r = new MersenneTwisterFast(SEED);
+        ms = System.currentTimeMillis();
+        xx=0;
+        for (j = 0; j < 100000000; j++)
+            xx += r.nextInt();
+        System.out.println("MersenneTwisterFast: " + (System.currentTimeMillis()-ms) + "          Ignore this: " + xx);
+        
+        // TEST TO COMPARE TYPE CONVERSION BETWEEN
+        // MersenneTwisterFast.java AND MersenneTwister.java
+         
+        System.out.println("\nGrab the first 1000 booleans");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextBoolean() + " ");
+            if (j%8==7) System.out.println();
+            }
+        if (!(j%8==7)) System.out.println();
+    /*      
+        System.out.println("\nGrab 1000 booleans of increasing probability using nextBoolean(double)");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextBoolean((double)(j/999.0)) + " ");
+            if (j%8==7) System.out.println();
+            }
+        if (!(j%8==7)) System.out.println();
+          
+        System.out.println("\nGrab 1000 booleans of increasing probability using nextBoolean(float)");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextBoolean((float)(j/999.0f)) + " ");
+            if (j%8==7) System.out.println();
+            }
+        if (!(j%8==7)) System.out.println();
+          
+        byte[] bytes = new byte[1000];
+        System.out.println("\nGrab the first 1000 bytes using nextBytes");
+        r = new MersenneTwisterFast(SEED);
+        r.nextBytes(bytes);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(bytes[j] + " ");
+            if (j%16==15) System.out.println();
+            }
+        if (!(j%16==15)) System.out.println();
+        
+        byte b;
+        System.out.println("\nGrab the first 1000 bytes -- must be same as nextBytes");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print((b = r.nextByte()) + " ");
+            if (b!=bytes[j]) System.out.print("BAD ");
+            if (j%16==15) System.out.println();
+            }
+        if (!(j%16==15)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 shorts");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextShort() + " ");
+            if (j%8==7) System.out.println();
+            }
+        if (!(j%8==7)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 ints");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextInt() + " ");
+            if (j%4==3) System.out.println();
+            }
+        if (!(j%4==3)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 ints of different sizes");
+        r = new MersenneTwisterFast(SEED);
+        int max = 1;
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextInt(max) + " ");
+            max *= 2;
+            if (max <= 0) max = 1;
+            if (j%4==3) System.out.println();
+            }
+        if (!(j%4==3)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 longs");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextLong() + " ");
+            if (j%3==2) System.out.println();
+            }
+        if (!(j%3==2)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 longs of different sizes");
+        r = new MersenneTwisterFast(SEED);
+        long max2 = 1;
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextLong(max2) + " ");
+            max2 *= 2;
+            if (max2 <= 0) max2 = 1;
+            if (j%4==3) System.out.println();
+            }
+        if (!(j%4==3)) System.out.println();
+          
+        System.out.println("\nGrab the first 1000 floats");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextFloat() + " ");
+            if (j%4==3) System.out.println();
+            }
+        if (!(j%4==3)) System.out.println();
+
+        System.out.println("\nGrab the first 1000 doubles");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextDouble() + " ");
+            if (j%3==2) System.out.println();
+            }
+        if (!(j%3==2)) System.out.println();
+*/
+/*
+        System.out.println("\nGrab the first 1000 gaussian doubles");
+        r = new MersenneTwisterFast(SEED);
+        for (j = 0; j < 1000; j++)
+            {
+            System.out.print(r.nextGaussian() + " ");
+            if (j%3==2) System.out.println();
+            }
+        if (!(j%3==2)) System.out.println();
+        
+*/
+        }
+    }
