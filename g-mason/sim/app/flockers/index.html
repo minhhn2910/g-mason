@@ -26,5 +26,8 @@ By Sean Luke
 <li><b>Dead Flocker Probability:</b> the probability that a flocker will be born dead.  We include dead flockers to make for interesting obstacles.
 <li><b>Height and Width:</b> the dimensions of the environment.
 <li><b>Neighborhood:</b> how many units in each direction a flocker scans to determine nearby flockers.  Changing this has two effects.  First, a bigger neighborhood results in stronger cohesion and coherence.  Second, a bigger neighborhood results in slower computation, because many more neighbors will be considered.  The drop-off is O(n^2) in neighborhood distance.  You can also see the effect of more neighbors by deleting Avoidance, resulting in the flockers collapsing and the system slowing as tons of flockers fill the same neighborhood region.  This provides a good tutorial for understanding the importance of a good discretization setting for Continuous2D and Continuous3D fields in MASON.
+<li><b>gpusteps:</b> how many steps of simulation in GPU(s) before copy back to CPU and do simulation</li>
+  
 </ul>
+
 
